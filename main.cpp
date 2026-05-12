@@ -11,7 +11,7 @@
 using namespace std;
 
 map<string, int> vals = {{"iron", 7}, {"gold", 11}, {"gems", 23}, {"exp", 1}};
-map<string, int> collected = {{"iron", 0}, {"gold", 0}, {"gems", 0}, {"exp", 0}};
+const vector<string> res_order = {"iron", "gold", "gems", "exp"};
 
 struct Room {
     int id;
@@ -19,200 +19,225 @@ struct Room {
     map<string, int> res;
 
     Room(string s) {
-        for (char &c : s) {
-            if (c == ','){
-                c = ' ';
-            } 
-        }
+        for (size_t i = 0; i < s.length(); i++) if (s[i] == ',') s[i] = ' ';
         stringstream ss(s);
-        if (!(ss >> id)){
-            return;
+        vector<int> nums; string word;
+        while (ss >> word) {
+            bool is_num = true;
+            for (char c : word) if (!isdigit(c)) is_num = false;
+            if (is_num){
+                nums.push_back(stoi(word));   
+            }
         }
-        vector<int> nums;
-        int n;
-        while (ss >> n){
-            nums.push_back(n);
-        } 
-        if (nums.size() >= 4) {
-            for (size_t i = 0; i < nums.size() - 4; ++i) neighbors.push_back(nums[i]);
-            res["iron"] = nums[nums.size() - 4];
-            res["gold"] = nums[nums.size() - 3];
-            res["gems"] = nums[nums.size() - 2];
-            res["exp"] = nums[nums.size() - 1];
+        
+        if (!nums.empty()) {
+            id = nums[0];
+            if (nums.size() >= 5) {
+                for (size_t i = 1; i < nums.size() - 4; i++) neighbors.push_back(nums[i]);
+                res["iron"] = nums[nums.size() - 4];
+                res["gold"] = nums[nums.size() - 3];
+                res["gems"] = nums[nums.size() - 2];
+                res["exp"] = nums[nums.size() - 1];
+            }
         }
     }
 };
 
-void state(int n, vector<Room>& rs, ofstream& out) {
+void state_out(int n, vector<Room>& rs, ofstream& out) {
     out << "state " << n;
-    vector<string> order = {"iron", "gold", "gems", "exp"};
-    for (auto& k : order) {
+    for (const string& k : res_order) {
         if (n == 0) {
             out << " 0";
-        }    
-        else {
+        }
+        else{
             out << " " << (rs[n].res[k] > 0 ? to_string(rs[n].res[k]) : "_");
-        }   
-    }
+        }
+    } 
     out << endl;
 }
 
-void collect(Room& r, string tar, ofstream& out) {
-    string best = "";
-    int max_v = -1;
-    vector<string> order = {"iron", "gold", "gems", "exp"};
-    for (auto& k : order) {
+bool collect_f(Room& r, string tar, map<string, int>& local_col, ofstream& out, vector<Room>& rooms) {
+    string best = ""; int max_v = -1;
+    for (const string& k : res_order) {
         if (r.res[k] > 0) {
             int v = vals[k] * (k == tar ? 2 : 1);
-            if (v > max_v) {
-                max_v = v; best = k;
+            if (v > max_v) { 
+                max_v = v; best = k; 
             }
         }
     }
-    if (!best.empty()) {
-        collected[best]++; 
-        r.res[best]--;
+
+    if (best != "") {
+        local_col[best]++; r.res[best]--;
         out << "collect " << best << endl;
+        state_out(r.id, rooms, out);
+        return true;
     }
+    return false;
 }
 
-int next_step(int start, const vector<int>& way, const vector<vector<int>>& adj) {
-    set<int> seen(way.begin(), way.end());
-    vector<int> nbs = adj[start];
-    sort(nbs.begin(), nbs.end());
-    for (int n : nbs){
-        if (seen.find(n) == seen.end()){
-            return n;
-        } 
-    } 
-    
+int get_dist(int start, int target, const vector<vector<int>>& adj) {
+    if (start == target) {
+        return 0;
+    }
     queue<pair<int, int>> q;
-    set<int> visited = {start};
-    for (int n : nbs) { q.push({n, n}); visited.insert(n); }
+    q.push({start, 0});
+    set<int> v = {start};
+    
     while (!q.empty()) {
-        int curr = q.front().first; int first = q.front().second; q.pop();
-        vector<int> next_nbs = adj[curr]; sort(next_nbs.begin(), next_nbs.end());
-        for (int n : next_nbs) {
-            if (seen.find(n) == seen.end()){
-                return first;
-            } 
-            if (visited.find(n) == visited.end()) {
-                visited.insert(n); q.push({n, first}); 
+        int curr = q.front().first; int d = q.front().second; q.pop();
+        for (int n : adj[curr]) {
+            if (n == target) {
+                return d + 1;
+            }   
+            if (v.find(n) == v.end()) { 
+                v.insert(n);
+                q.push({n, d + 1}); 
             }
         }
     }
-    return -1;
+    return 999;
 }
 
-vector<int> get_path_to_zero(int start, const vector<vector<int>>& adj) {
-    if (start == 0) return {};
+vector<int> get_path(int start, int target, const vector<vector<int>>& adj) {
+    if (start == target) {
+        return {};
+    }
+
     queue<vector<int>> q;
     q.push({start});
     set<int> v = {start};
-    while(!q.empty()){
+    while (!q.empty()) {
+
         vector<int> p = q.front(); q.pop();
         int curr = p.back();
-        if (curr == 0) {
-            return vector<int>(p.begin() + 1, p.end());
+        if (curr == target) {
+            vector<int> res_p;
+            for (size_t i = 1; i < p.size(); i++){
+                res_p.push_back(p[i]);
+            } 
+            return res_p;
         }
-        vector<int> nbs = adj[curr]; sort(nbs.begin(), nbs.end());
-        for(int n : nbs){
-            if(v.find(n) == v.end()){
+
+        vector<int> nbs = adj[curr];
+        sort(nbs.begin(), nbs.end());
+        for (int n : nbs) {
+            if (v.find(n) == v.end()) { 
                 v.insert(n);
                 vector<int> np = p;
                 np.push_back(n);
-                q.push(np);
+                q.push(np); 
             }
-        } 
+        }
+        
     }
     return {};
 }
 
-int main(int argc, char* argv[]) {
-    ofstream out("result.txt");
-    if (argc < 2) {
-        out << "Invalid input" << endl; return 0; 
-    }
-    
-    ifstream in(argv[1]);
-    if (!in.is_open()) { 
-        out << "Invalid input" << endl; return 0; 
-    }
-    
-    string l; 
-    if (!getline(in, l) || l.empty()) {
-         out << "Invalid input" << endl; return 0; 
-    }
-    
-    int N;
-    try { 
-        N = stoi(l);
-    } catch (...) { 
-        out << "Invalid input" << endl; return 0; 
-    }
-
-    vector<Room> rooms;
-    for (int i = 0; i <= N; ++i) {
-        if (!getline(in, l) || l.empty()) {
-            out << "Invalid input" << endl; return 0; 
-        }
-        for (char c : l) {
-            if (!isdigit(c) && !isspace(c) && c != ',' && c != '\r') {
-                out << l << endl; 
-                return 0;
-            }
-        }
-        rooms.emplace_back(l);
-    }
-    
-    int M; string tar; 
-    if (!(in >> M >> tar)) { 
-        out << "Invalid input" << endl; return 0; 
-    }
-
-    vector<vector<int>> adj(N + 1);
-    for (int i = 0; i <= N; ++i){
-        adj[i] = rooms[i].neighbors;
-    }
-
-    vector<int> way;
+long long run_bot(int mode, int M, string tar, vector<Room> rooms, const vector<vector<int>>& adj, string out_name) {
+    ofstream out(out_name);
+    map<string, int> local_col = {{"iron", 0}, {"gold", 0}, {"gems", 0}, {"exp", 0}};
+    vector<int> way = {0};
     int cur_f = M, curr = 0;
-    way.push_back(0); 
-    state(0, rooms, out);
+    state_out(0, rooms, out);
 
-    while (cur_f > M / 2) {
-        int nxt = next_step(curr, way, adj);
-        if (nxt == -1) break;
-        curr = nxt; cur_f--;
-        out << "go " << curr << endl;
-        way.push_back(curr);
-        state(curr, rooms, out);
+    while (true) {
+        int d_h = get_dist(curr, 0, adj);
+        bool can_move = (mode == 1) ? (cur_f > M / 2) : (cur_f > d_h + 1);
+        int nxt = -1;
+        if (can_move) {
+            set<int> seen(way.begin(), way.end());
+            vector<int> nbs = adj[curr]; sort(nbs.begin(), nbs.end());
+            for (int n : nbs) {
+                if (seen.find(n) == seen.end()) { 
+                    nxt = n; break; 
+                }
+            }    
+        }
 
-        bool has_res = false;
-        for(auto const& [name, count] : rooms[curr].res) {
-            if(count > 0) {
-                has_res = true;
+        if (nxt != -1) {
+            curr = nxt; cur_f--;
+            out << "go " << curr << endl; way.push_back(curr);
+            state_out(curr, rooms, out);
+            
+            bool first = true;
+            while (true) {
+                int dist = get_dist(curr, 0, adj);
+                if (first) {
+                    if (collect_f(rooms[curr], tar, local_col, out, rooms)){
+                        first = false;
+                    }
+                    else break;
+                } else if (mode == 2 && cur_f > dist) {
+                    if (collect_f(rooms[curr], tar, local_col, out, rooms)) {
+                        cur_f--;
+                    }    
+                    else break;
+                } else break;
             }
-        }
-
-        if (has_res) {
-            collect(rooms[curr], tar, out);
-            state(curr, rooms, out);
-        }
+        } else break;
     }
 
-    vector<int> back = get_path_to_zero(curr, adj);
+    vector<int> back = get_path(curr, 0, adj);
     for (int n : back) { 
-        out << "go " << n << endl; 
-        state(n, rooms, out); 
+        cur_f--;
+        out << "go " << n << endl;
+        state_out(n, rooms, out); 
     }
-
+    
     long long total = 0;
-    vector<string> order = {"iron", "gold", "gems", "exp"};
-    for (auto& k : order) {
-        total += (long long)collected[k] * vals[k] * (k == tar ? 2 : 1);
+    for (const string& k : res_order) {
+        total += (long long)local_col[k] * vals[k] * (k == tar ? 2 : 1);
     }
-    out << "result " << collected["iron"] << " " << collected["gold"] << " " << collected["gems"] << " " << collected["exp"] << " " << total << endl;
 
+    out << "result " << local_col["iron"] << " " << local_col["gold"] << " " << local_col["gems"] << " " << local_col["exp"] << " " << total << endl;
+    return total;
+}
+
+int main(int argc, char* argv[]) {
+    ofstream res1("result.txt");
+    if (argc < 2) { 
+        res1 << "Invalid input" << endl;
+        return 0; 
+    }
+
+    ifstream in(argv[1]);
+    if (!in) { 
+        res1 << "Invalid input" << endl;
+        return 0; 
+    }
+
+    string l;
+    if (!getline(in, l) || l.empty()) {
+        res1 << "Invalid input" << endl;
+        return 0; 
+    }
+
+    int N = stoi(l); vector<Room> rooms;
+    for (int i = 0; i <= N; i++) {
+        if (!getline(in, l)) { 
+            res1 << "Invalid input" << endl; return 0; 
+        }
+        for (char c : l){
+            if (!isdigit(c) && !isspace(c) && c != ',' && c != '\r') { 
+                res1 << l << endl;
+                return 0; 
+            }
+        } 
+        rooms.push_back(Room(l));
+    }
+
+    int M; 
+    string tar; 
+    in >> M >> tar;
+    vector<vector<int>> adj(N + 1);
+    for (int i = 0; i <= N; i++) adj[i] = rooms[i].neighbors;
+
+    long long r1 = run_bot(1, M, tar, rooms, adj, "result.txt");
+    long long r2 = run_bot(2, M, tar, rooms, adj, "result2.txt");
+    long long r3 = run_bot(3, M, tar, rooms, adj, "result3.txt");
+
+    ofstream cmp("compare.txt");
+    cmp << "Strategy 1: " << r1 << " pts\nStrategy 2: " << r2 << " pts (Greedy)\nStrategy 3: " << r3 << " pts (Economic)\n";
     return 0;
 }

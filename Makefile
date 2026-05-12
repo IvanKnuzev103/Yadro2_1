@@ -1,6 +1,5 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
-
 TARGET = bot
 
 all: $(TARGET)
@@ -12,4 +11,4 @@ run: $(TARGET)
 	./$(TARGET) $(FILE)
 
 clean:
-	rm -f $(TARGET) result.txt
+	rm -f $(TARGET) result.txt result2.txt result3.txt compare.txt
