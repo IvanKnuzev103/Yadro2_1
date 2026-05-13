@@ -1,14 +1,8 @@
-CXX = g++
-CXXFLAGS = -Wall -Wextra -std=c++17
-TARGET = bot
+all:
+	@g++ -std=c++17 main.cpp -o task
 
-all: $(TARGET)
-
-$(TARGET): main.cpp
-	$(CXX) $(CXXFLAGS) main.cpp -o $(TARGET)
-
-run: $(TARGET)
-	./$(TARGET) $(FILE)
+run: all
+	@./task in.txt
 
 clean:
-	rm -f $(TARGET) result.txt result2.txt result3.txt compare.txt
+	@rm -f task result.txt
