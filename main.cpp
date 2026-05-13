@@ -13,7 +13,7 @@ using namespace std;
 struct Room {
     int id = -1;
     vector<int> neighbors;
-    int res[4] = {0, 0, 0, 0}; // iron, gold, gems, exp
+    int res[4] = {0, 0, 0, 0};
     bool visited = false;
     bool collected_once = false; 
 };
@@ -47,29 +47,26 @@ int get_best_res(const Room& r, int target_idx, const int doubled_vals[]) {
 int main(int argc, char* argv[]) {
     if (argc < 2) return 1;
     ifstream in(argv[1]);
-    ofstream out("result.txt"); // Открываем сразу для вывода ошибок
+    ofstream out("result.txt");
     if (!in) return 1;
 
     int N;
     string line;
     if (!(in >> N)) return 0;
-    getline(in, line); // Очистка буфера после чтения N
+    getline(in, line);
 
     map<int, Room> rooms;
     for (int i = 0; i <= N; ++i) {
         if (!getline(in, line) || line.empty()) break;
         
-        // Валидация строки перед обработкой
         stringstream ss(line);
         string id_s, adj_s, r0, r1, r2, r3, extra;
         
-        // Проверка структуры: должно быть ровно 6 элементов
         if (!(ss >> id_s >> adj_s >> r0 >> r1 >> r2 >> r3) || (ss >> extra)) {
             out << line << endl;
             return 0;
         }
 
-        // Проверка списка смежности (только цифры и запятые)
         for (char c : adj_s) {
             if (!isdigit(c) && c != ',') {
                 out << line << endl;
@@ -77,13 +74,11 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Парсинг данных после успешной валидации
         int id = stoi(id_s);
         Room r; 
         r.id = id;
         r.res[0] = stoi(r0); r.res[1] = stoi(r1); r.res[2] = stoi(r2); r.res[3] = stoi(r3);
 
-        // Обработка списка смежности (логика не меняется)
         string adj_temp = adj_s;
         for (char &c : adj_temp) if (!isdigit(c)) c = ' ';
         stringstream ss_adj(adj_temp);
@@ -93,7 +88,6 @@ int main(int argc, char* argv[]) {
         rooms[id] = r;
     }
 
-    // Делаем связи двусторонними (ваша логика)
     for (auto const& [id, r] : rooms) {
         for (int nb_id : r.neighbors) {
             if (rooms.count(nb_id)) {
@@ -119,7 +113,6 @@ int main(int argc, char* argv[]) {
     rooms[0].visited = true;
     long long collected[4] = {0, 0, 0, 0};
 
-    // --- ФАЗА ИССЛЕДОВАНИЯ ---
     while (food > M / 2) {
         int next = -1;
         int min_adj = 1e9;
@@ -171,7 +164,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // --- ФАЗА ВОЗВРАЩЕНИЯ ---
     auto get_path = [&](int start) {
         queue<int> q; q.push(0);
         map<int, int> dist; dist[0] = 0;
